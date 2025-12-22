@@ -33,7 +33,15 @@
       <div>
         <strong id="userEmail"></strong>
       </div>
-      <button id="logoutBtn">Salir</button>
+      <div class="top-actions">
+        <button id="exportBtn" title="Exportar puntuaciones">Exportar</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+        <button id="importBtn" title="Importar puntuaciones">Importar</button>
+        <button id="saveGithubBtn" title="Guardar votaciones en GitHub">Guardar en GitHub</button>
+        <button id="resetOrderBtn" title="Reiniciar orden">Reiniciar orden</button>
+        <span id="progress" class="progress" aria-live="polite"></span>
+        <button id="logoutBtn">Salir</button>
+      </div>
     </header>
 
     <main class="gallery">
@@ -81,6 +89,12 @@
     const starsEl     = document.getElementById("stars");
     const myRatingEl  = document.getElementById("myRating");
     const saveMsgEl   = document.getElementById("saveMsg");
+    const exportBtn   = document.getElementById("exportBtn");
+    const importBtn   = document.getElementById("importBtn");
+    const importFile  = document.getElementById("importFile");
+    const saveGithubBtn = document.getElementById("saveGithubBtn");
+    const resetOrderBtn = document.getElementById("resetOrderBtn");
+    const progressEl  = document.getElementById("progress");
 
     // Cargar credentials.json
     async function loadCredentials() {
@@ -159,6 +173,24 @@
       photoTitle.textContent = img.titulo || img.id;
       saveMsgEl.textContent = "";
       await loadMyRating(img.id);
+      preloadNext();
+      updateProgress();
+    }
+
+    function updateProgress() {
+      if (!IMAGES || IMAGES.length === 0) {
+        progressEl.textContent = '';
+        return;
+      }
+      progressEl.textContent = `Foto ${index+1} de ${IMAGES.length}`;
+    }
+
+    function preloadNext() {
+      const nextIdx = (index + 1) % (IMAGES.length || 1);
+      const next = IMAGES[nextIdx];
+      if (!next) return;
+      const img = new Image();
+      img.src = next.url;
     }
 
     prevBtn.addEventListener("click", () => {
@@ -192,7 +224,66 @@
       saveMsgEl.textContent = "¡Guardado!";
       myRatingEl.textContent = stars;
       renderStars(stars);
+      // Persist local
+      saveRatingsToLocalStorage();
     }
+
+    // Local persistence
+    function saveRatingsToLocalStorage() {
+      try {
+        localStorage.setItem('votacions_ratings', JSON.stringify(ratings));
+        console.log('Ratings saved to localStorage');
+      } catch (e) {
+        console.error('Error saving ratings to localStorage', e);
+      }
+    }
+    function loadRatingsFromLocalStorage() {
+      try {
+        const raw = localStorage.getItem('votacions_ratings');
+        if (raw) ratings = JSON.parse(raw);
+        console.log('Ratings loaded from localStorage');
+      } catch (e) {
+        console.error('Error loading ratings from localStorage', e);
+      }
+    }
+
+    // Export / Import
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(ratings, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'votacions_ratings.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      try {
+        const txt = await f.text();
+        const obj = JSON.parse(txt);
+        ratings = obj || {};
+        saveRatingsToLocalStorage();
+        saveMsgEl.textContent = 'Importado.';
+        await loadMyRating(IMAGES[index]?.id);
+      } catch (err) {
+        console.error('Import error', err);
+        saveMsgEl.textContent = 'Error importando.';
+      }
+      importFile.value = '';
+    });
+
+    // Reset order (clear seed shuffle)
+    resetOrderBtn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      await loadImages();
+      index = 0;
+      await showPhoto();
+    });
 
     // Login using local credentials.json
     loginForm.addEventListener("submit", async (e) => {
@@ -225,9 +316,32 @@
     logoutBtn.addEventListener("click", async () => {
       currentUser = null;
       ratings = {};
+      saveRatingsToLocalStorage();
       authSection.classList.remove("hidden");
       appSection.classList.add("hidden");
       loginForm.reset();
+    });
+
+    // Keyboard navigation and star keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (!currentUser) return;
+      if (e.key === 'ArrowLeft') { prevBtn.click(); }
+      if (e.key === 'ArrowRight') { nextBtn.click(); }
+      if (e.key === 'Home') { index = 0; showPhoto(); }
+      if (e.key === 'End') { index = IMAGES.length - 1; showPhoto(); }
+    });
+
+    starsEl.addEventListener('keydown', (e) => {
+      const focused = document.activeElement;
+      if (!focused || !focused.classList.contains('star')) return;
+      const children = Array.from(starsEl.querySelectorAll('.star'));
+      const idx = children.indexOf(focused);
+      if (e.key === 'ArrowLeft' && idx > 0) children[idx-1].focus();
+      if (e.key === 'ArrowRight' && idx < children.length-1) children[idx+1].focus();
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        focused.click();
+      }
     });
 
     // Inicializar
@@ -238,9 +352,50 @@
         console.warn("loadCredentials no disponible; se continúa sin credenciales locales.");
         credentials = [];
       }
+      loadRatingsFromLocalStorage();
       renderStars(0);
-      console.log('App initialized with local credentials');
+      console.log('App initialized with local credentials and local storage');
     })();
+
+    // --- GitHub save integration (client-side) ---
+    async function getGitHubFileSha(owner, repo, path, token) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
+      if (res.status === 200) {
+        const j = await res.json();
+        return j.sha;
+      }
+      return null;
+    }
+    async function saveRatingsToGitHub() {
+      const owner = prompt('Owner (usuario/organización):', 'cavecavet');
+      if (!owner) return;
+      const repo = prompt('Repositorio:', 'votacions');
+      if (!repo) return;
+      const path = prompt('Ruta en repo (p.e. data/ratings.json):', 'data/ratings.json');
+      if (!path) return;
+      const token = prompt('Personal Access Token (con scope repo) — se usará solo en esta sesión:');
+      if (!token) return alert('Token requerido');
+
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(ratings, null, 2))));
+      const sha = await getGitHubFileSha(owner, repo, path, token);
+      const putUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      const body = { message: `Update ratings by ${currentUser ? currentUser.email : 'anonymous'}`, content };
+      if (sha) body.sha = sha;
+      const res = await fetch(putUrl, {
+        method: 'PUT',
+        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        saveMsgEl.textContent = 'Guardado en GitHub.';
+      } else {
+        const txt = await res.text();
+        console.error('GitHub save error', res.status, txt);
+        saveMsgEl.textContent = 'Error guardando en GitHub. Revisa la consola.';
+      }
+    }
+    saveGithubBtn.addEventListener('click', saveRatingsToGitHub);
   </script>
 </body>
 </html>
