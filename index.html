@@ -215,15 +215,17 @@
       checkUserBtn.addEventListener('click', async () => {
         const email = document.getElementById('email').value.trim();
         if (!email) return loginError.textContent = 'Introduce un correo para comprobar.';
+        console.log('Checking if email exists:', email);
         try {
           const methods = await fetchSignInMethodsForEmail(auth, email);
+          console.log('Sign-in methods found:', methods);
           if (methods && methods.length > 0) {
             loginError.textContent = `El email está registrado (métodos: ${methods.join(', ')}).`;
           } else {
             loginError.textContent = 'No existe ningún usuario con ese correo.';
           }
         } catch (err) {
-          console.error('Error comprobando usuario:', err);
+          console.error('Error comprobando usuario:', err.code, err.message);
           loginError.textContent = 'Error al comprobar el usuario.';
         }
       });
@@ -376,10 +378,12 @@
       loginError.textContent = "";
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
+      console.log('Attempting login with email:', email);
       try {
         await signInWithEmailAndPassword(auth, email, password);
+        console.log('Login successful');
       } catch (err) {
-        console.error(err);
+        console.error('Firebase login error:', err.code, err.message);
         loginError.textContent = "Error al iniciar sesión. Verifica correo/contraseña.";
       }
     });
@@ -431,8 +435,12 @@
 
     // Inicializar
     (async () => {
-      initGoogleApi();
+      // initGoogleApi(); // Temporarily disabled (deprecated gapi.auth2)
+      // TODO: Migrate to Google Identity Services (GIS) when ready
       renderStars(0);
+      // Log Firebase initialization for debugging
+      console.log('Firebase initialized with projectId:', db.app.options.projectId);
+      console.log('Auth initialized, checking sign-in methods...');
     })();
   </script>
 </body>
