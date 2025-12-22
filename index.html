@@ -23,7 +23,7 @@
       <button type="submit">Entrar</button>
     </form>
     <p><a href="#" id="forgotLink">¿Olvidaste tu contraseña?</a></p>
-    <p class="hint">* Usuario: prueba@ejemplo.com | Contraseña: prueBa123!</p>
+    <p class="hint">* Configura Firebase en FIREBASE_SETUP.md</p>
     <p id="loginError" class="error"></p>
   </section>
 
@@ -96,16 +96,50 @@
     const resetOrderBtn = document.getElementById("resetOrderBtn");
     const progressEl  = document.getElementById("progress");
 
-    // Cargar credentials.json
-    async function loadCredentials() {
+    // Firebase Config (update with your config from Firebase Console)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Firebase v9 imports
+    let auth, firestore;
+    async function initFirebase() {
       try {
-        const res = await fetch("credentials.json");
-        const data = await res.json();
-        credentials = data.users || [];
-        console.log('Credentials loaded:', credentials.length, 'users');
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+        const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+        
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        firestore = getFirestore(app);
+        console.log('Firebase initialized');
+        
+        onAuthStateChanged(auth, (user) => {
+          if (user) {
+            console.log('User logged in:', user.email);
+            currentUser = { email: user.email, uid: user.uid };
+            userEmailEl.textContent = user.email;
+            authSection.classList.add("hidden");
+            appSection.classList.remove("hidden");
+            loadImages();
+            loadRatingsFromLocalStorage();
+            index = 0;
+            showPhoto();
+          } else {
+            console.log('User not logged in');
+            currentUser = null;
+            authSection.classList.remove("hidden");
+            appSection.classList.add("hidden");
+          }
+        });
       } catch (err) {
-        console.error("Error cargando credentials.json:", err);
-        credentials = [];
+        console.error('Error initializing Firebase:', err);
+        loginError.textContent = 'Error inicializando Firebase. Revisa la consola y la configuración.';
       }
     }
 
@@ -285,41 +319,61 @@
       await showPhoto();
     });
 
-    // Login using local credentials.json
+    // Login using Firebase
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       loginError.textContent = "";
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-      console.log('Attempting login with email:', email);
-      const user = credentials.find(u => u.email === email && u.password === password);
-      if (user) {
+      if (!auth) {
+        loginError.textContent = 'Firebase no inicializado.';
+        return;
+      }
+      try {
+        const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        await signInWithEmailAndPassword(auth, email, password);
         console.log('Login successful');
-        currentUser = { email };
-        userEmailEl.textContent = email;
-        authSection.classList.add("hidden");
-        appSection.classList.remove("hidden");
-        await loadImages();
-        index = 0;
-        await showPhoto();
-      } else {
-        console.log('Login failed: invalid credentials');
-        loginError.textContent = "Email o contraseña incorrectos.";
+      } catch (err) {
+        console.error('Login error:', err.code, err.message);
+        loginError.textContent = err.message;
       }
     });
 
-    forgotLink.addEventListener("click", (e) => {
+    forgotLink.addEventListener("click", async (e) => {
       e.preventDefault();
-      loginError.textContent = "Contacta al administrador para restablecer la contraseña.";
+      const email = document.getElementById("email").value.trim();
+      if (!email) {
+        loginError.textContent = "Ingresa tu correo primero.";
+        return;
+      }
+      if (!auth) {
+        loginError.textContent = 'Firebase no inicializado.';
+        return;
+      }
+      try {
+        const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        await sendPasswordResetEmail(auth, email);
+        loginError.textContent = 'Email de recuperación enviado.';
+      } catch (err) {
+        console.error('Password reset error:', err.message);
+        loginError.textContent = err.message;
+      }
     });
 
     logoutBtn.addEventListener("click", async () => {
-      currentUser = null;
-      ratings = {};
-      saveRatingsToLocalStorage();
-      authSection.classList.remove("hidden");
-      appSection.classList.add("hidden");
-      loginForm.reset();
+      if (!auth) return;
+      try {
+        const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        await signOut(auth);
+        currentUser = null;
+        ratings = {};
+        saveRatingsToLocalStorage();
+        authSection.classList.remove("hidden");
+        appSection.classList.add("hidden");
+        loginForm.reset();
+      } catch (err) {
+        console.error('Logout error:', err);
+      }
     });
 
     // Keyboard navigation and star keyboard support
@@ -346,15 +400,10 @@
 
     // Inicializar
     (async () => {
-      if (typeof loadCredentials === "function") {
-        await loadCredentials();
-      } else {
-        console.warn("loadCredentials no disponible; se continúa sin credenciales locales.");
-        credentials = [];
-      }
+      await initFirebase();
       loadRatingsFromLocalStorage();
       renderStars(0);
-      console.log('App initialized with local credentials and local storage');
+      console.log('App initialized with Firebase');
     })();
 
     // --- GitHub save integration (client-side) ---
