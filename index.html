@@ -68,7 +68,16 @@
 
   <!-- Firebase v9 modular -->
   <script async defer src="https://apis.google.com/js/api.js"></script>
-  <script>
+  <script type="module">
+    // Firebase imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
     // Google Drive integration for storing ratings
     const GOOGLE_CLIENT_ID = "766497474466-r2vnqda41q20qkhm8psmaa4vq8ehlrti.apps.googleusercontent.com";
     const DRIVE_FILE_ID = "1klzoBYFsURXmLNR0uH1Vc6jfLTSk5U2K";
@@ -101,17 +110,18 @@
     const testLoadBtn = document.getElementById("testLoadBtn");
     const testSaveBtn = document.getElementById("testSaveBtn");
 
-    // Cargar credentials.json (lista de usuarios locales)
-    async function loadCredentials() {
-      try {
-        const res = await fetch("credentials.json");
-        const data = await res.json();
-        credentials = data.users || [];
-      } catch (err) {
-        console.error("Error cargando credentials.json:", err);
-        credentials = [];
-      }
-    }
+    // Firebase config & init
+    const firebaseConfig = {
+      apiKey: "AIzaSyBJaD7hIrBr6o05pQ-y8875uoQ_jZFCX_g",
+      authDomain: "votafotos-424b8.firebaseapp.com",
+      projectId: "votafotos-424b8",
+      storageBucket: "votafotos-424b8.firebasestorage.app",
+      messagingSenderId: "730368251670",
+      appId: "1:730368251670:web:570b65ddde754a82ca2237"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
     // Google API init
     function initGoogleApi() {
@@ -334,25 +344,17 @@
       renderStars(stars);
     }
 
-    // Login (local credentials.json)
+    // Login using Firebase Auth
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       loginError.textContent = "";
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-      const user = credentials.find(u => u.email === email && u.password === password);
-      if (user) {
-        currentUser = { email };
-        userEmailEl.textContent = email;
-        // Load ratings from Drive if signed in
-        ratings = await loadRatingsFromDrive();
-        authSection.classList.add("hidden");
-        appSection.classList.remove("hidden");
-        await loadImages();
-        index = 0;
-        await showPhoto();
-      } else {
-        loginError.textContent = "Email o contraseña incorrectos.";
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        console.error(err);
+        loginError.textContent = "Error al iniciar sesión. Verifica correo/contraseña.";
       }
     });
 
@@ -366,10 +368,29 @@
       loginForm.reset();
     });
 
+    // Auth state handling
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        userEmailEl.textContent = user.email || "";
+        authSection.classList.add("hidden");
+        appSection.classList.remove("hidden");
+
+        // load images and ratings (Drive) for the logged user
+        ratings = await loadRatingsFromDrive();
+        await loadImages();
+        index = 0;
+        await showPhoto();
+      } else {
+        currentUser = null;
+        authSection.classList.remove("hidden");
+        appSection.classList.add("hidden");
+      }
+    });
+
     // Inicializar
     (async () => {
       initGoogleApi();
-      await loadCredentials();
       renderStars(0);
     })();
   </script>
