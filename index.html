@@ -22,6 +22,10 @@
       </label>
       <button type="submit">Entrar</button>
     </form>
+    <div style="margin-top:12px">
+      <button id="googleSignInBtn">Iniciar sesión con Google (para guardar en Drive)</button>
+      <p class="hint">Inicia sesión con Google para permitir guardar las puntuaciones en Google Drive.</p>
+    </div>
     <p><a href="#" id="forgotLink">¿Olvidaste tu contraseña?</a></p>
     <p class="hint">* Sólo usuarios autorizados (creados previamente).</p>
     <p id="loginError" class="error"></p>
@@ -87,6 +91,7 @@
     const starsEl     = document.getElementById("stars");
     const myRatingEl  = document.getElementById("myRating");
     const saveMsgEl   = document.getElementById("saveMsg");
+    const googleSignInBtn = document.getElementById("googleSignInBtn");
 
     // Cargar credentials.json (lista de usuarios locales)
     async function loadCredentials() {
@@ -109,11 +114,47 @@
             scope: "https://www.googleapis.com/auth/drive"
           });
           gapi_loaded = true;
+          const auth = gapi.auth2.getAuthInstance();
+          // Update button text according to sign-in state
+          function updateGoogleButton() {
+            if (auth.isSignedIn.get()) {
+              googleSignInBtn.textContent = "Cerrar sesión de Google";
+            } else {
+              googleSignInBtn.textContent = "Iniciar sesión con Google (para guardar en Drive)";
+            }
+          }
+          auth.isSignedIn.listen(updateGoogleButton);
+          updateGoogleButton();
+          // When signing in, load ratings
+          auth.currentUser.listen(async () => {
+            if (auth.isSignedIn.get()) {
+              ratings = await loadRatingsFromDrive() || ratings;
+            }
+          });
         } catch (err) {
           console.error("Error iniciando Google API:", err);
         }
       });
     }
+
+    // Trigger Google sign-in / sign-out
+    googleSignInBtn.addEventListener("click", async () => {
+      if (!gapi_loaded) return alert('Google API no cargada aún.');
+      const auth = gapi.auth2.getAuthInstance();
+      if (!auth.isSignedIn.get()) {
+        try {
+          await auth.signIn();
+          ratings = await loadRatingsFromDrive() || ratings;
+          saveMsgEl.textContent = "Conectado a Google Drive.";
+        } catch (err) {
+          console.error('Error en signIn:', err);
+          alert('No se pudo autenticar con Google.');
+        }
+      } else {
+        await auth.signOut();
+        saveMsgEl.textContent = "Sesión de Google cerrada.";
+      }
+    });
 
     // Load ratings JSON from Drive
     async function loadRatingsFromDrive() {
