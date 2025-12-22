@@ -34,11 +34,6 @@
         <strong id="userEmail"></strong>
       </div>
       <div class="top-actions">
-        <button id="exportBtn" title="Exportar puntuaciones">Exportar</button>
-        <input id="importFile" type="file" accept="application/json" style="display:none" />
-        <button id="importBtn" title="Importar puntuaciones">Importar</button>
-        <button id="saveGithubBtn" title="Guardar votaciones en GitHub">Guardar en GitHub</button>
-        <button id="resetOrderBtn" title="Reiniciar orden">Reiniciar orden</button>
         <span id="progress" class="progress" aria-live="polite"></span>
         <button id="logoutBtn">Salir</button>
       </div>
@@ -99,11 +94,6 @@
     const starsEl     = document.getElementById("stars");
     const myRatingEl  = document.getElementById("myRating");
     const saveMsgEl   = document.getElementById("saveMsg");
-    const exportBtn   = document.getElementById("exportBtn");
-    const importBtn   = document.getElementById("importBtn");
-    const importFile  = document.getElementById("importFile");
-    const saveGithubBtn = document.getElementById("saveGithubBtn");
-    const resetOrderBtn = document.getElementById("resetOrderBtn");
     const progressEl  = document.getElementById("progress");
 
     // Firebase v9 imports
@@ -126,10 +116,13 @@
             userEmailEl.textContent = user.email;
             authSection.classList.add("hidden");
             appSection.classList.remove("hidden");
-            loadImages();
-            loadRatingsFromLocalStorage();
-            index = 0;
-            showPhoto();
+            // Load everything async
+            (async () => {
+              await loadImages();
+              await loadRatingsFromFirestore();
+              index = 0;
+              await showPhoto();
+            })();
           } else {
             console.log('User not logged in');
             currentUser = null;
@@ -258,8 +251,9 @@
       saveMsgEl.textContent = "¡Guardado!";
       myRatingEl.textContent = stars;
       renderStars(stars);
-      // Persist local
+      // Persist to localStorage and Firestore
       saveRatingsToLocalStorage();
+      await saveRatingsToFirestore();
     }
 
     // Local persistence
@@ -281,43 +275,46 @@
       }
     }
 
-    // Export / Import
-    exportBtn.addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(ratings, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'votacions_ratings.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-    importBtn.addEventListener('click', () => importFile.click());
-    importFile.addEventListener('change', async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
+    // Firestore persistence functions
+    async function saveRatingsToFirestore() {
+      if (!currentUser || !firestore) return;
       try {
-        const txt = await f.text();
-        const obj = JSON.parse(txt);
-        ratings = obj || {};
-        saveRatingsToLocalStorage();
-        saveMsgEl.textContent = 'Importado.';
-        await loadMyRating(IMAGES[index]?.id);
+        const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+        const ratingsRef = doc(firestore, 'users', currentUser.uid, 'ratings_data', 'current');
+        await setDoc(ratingsRef, {
+          ratings: ratings,
+          lastIndex: index,
+          lastUpdated: serverTimestamp()
+        });
+        console.log('Ratings saved to Firestore');
       } catch (err) {
-        console.error('Import error', err);
-        saveMsgEl.textContent = 'Error importando.';
+        console.error('Error saving ratings to Firestore:', err);
       }
-      importFile.value = '';
-    });
+    }
 
-    // Reset order (clear seed shuffle)
-    resetOrderBtn.addEventListener('click', async () => {
-      if (!currentUser) return;
-      await loadImages();
-      index = 0;
-      await showPhoto();
-    });
+    async function loadRatingsFromFirestore() {
+      if (!currentUser || !firestore) {
+        loadRatingsFromLocalStorage();
+        return;
+      }
+      try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+        const ratingsRef = doc(firestore, 'users', currentUser.uid, 'ratings_data', 'current');
+        const docSnap = await getDoc(ratingsRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          ratings = data.ratings || {};
+          index = data.lastIndex || 0;
+          console.log('Ratings loaded from Firestore, resuming at index', index);
+        } else {
+          console.log('No ratings found in Firestore, starting fresh');
+          loadRatingsFromLocalStorage();
+        }
+      } catch (err) {
+        console.error('Error loading ratings from Firestore:', err);
+        loadRatingsFromLocalStorage();
+      }
+    }
 
     // Login using Firebase
     loginForm.addEventListener("submit", async (e) => {
@@ -363,6 +360,7 @@
     logoutBtn.addEventListener("click", async () => {
       if (!auth) return;
       try {
+        await saveRatingsToFirestore();
         const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
         await signOut(auth);
         currentUser = null;
@@ -405,46 +403,6 @@
       renderStars(0);
       console.log('App initialized with Firebase');
     })();
-
-    // --- GitHub save integration (client-side) ---
-    async function getGitHubFileSha(owner, repo, path, token) {
-      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-      const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
-      if (res.status === 200) {
-        const j = await res.json();
-        return j.sha;
-      }
-      return null;
-    }
-    async function saveRatingsToGitHub() {
-      const owner = prompt('Owner (usuario/organización):', 'cavecavet');
-      if (!owner) return;
-      const repo = prompt('Repositorio:', 'votacions');
-      if (!repo) return;
-      const path = prompt('Ruta en repo (p.e. data/ratings.json):', 'data/ratings.json');
-      if (!path) return;
-      const token = prompt('Personal Access Token (con scope repo) — se usará solo en esta sesión:');
-      if (!token) return alert('Token requerido');
-
-      const content = btoa(unescape(encodeURIComponent(JSON.stringify(ratings, null, 2))));
-      const sha = await getGitHubFileSha(owner, repo, path, token);
-      const putUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-      const body = { message: `Update ratings by ${currentUser ? currentUser.email : 'anonymous'}`, content };
-      if (sha) body.sha = sha;
-      const res = await fetch(putUrl, {
-        method: 'PUT',
-        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
-        body: JSON.stringify(body)
-      });
-      if (res.ok) {
-        saveMsgEl.textContent = 'Guardado en GitHub.';
-      } else {
-        const txt = await res.text();
-        console.error('GitHub save error', res.status, txt);
-        saveMsgEl.textContent = 'Error guardando en GitHub. Revisa la consola.';
-      }
-    }
-    saveGithubBtn.addEventListener('click', saveRatingsToGitHub);
   </script>
 </body>
 </html>
