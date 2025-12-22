@@ -67,8 +67,14 @@
 
   <script type="module">
     // Firebase Config (update with your config from Firebase Console)
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+    const firebaseConfig = {
+      apiKey: "AIzaSyBJaD7hIrBr6o05pQ-y8875uoQ_jZFCX_g",
+      authDomain: "votafotos-424b8.firebaseapp.com",
+      projectId: "votafotos-424b8",
+      storageBucket: "votafotos-424b8.firebasestorage.app",
+      messagingSenderId: "730368251670",
+      appId: "1:730368251670:web:570b65ddde754a82ca2237"
+    };
 
     // App state
     let IMAGES = [];
@@ -99,16 +105,6 @@
     const saveGithubBtn = document.getElementById("saveGithubBtn");
     const resetOrderBtn = document.getElementById("resetOrderBtn");
     const progressEl  = document.getElementById("progress");
-
-    // Firebase Config (update with your config from Firebase Console)
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
 
     // Firebase v9 imports
     let auth, firestore;
