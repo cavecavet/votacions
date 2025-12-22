@@ -128,63 +128,15 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Google API init
+    // Google API init - DISABLED (gapi.auth2 is deprecated)
+    // TODO: Migrate to Google Identity Services (GIS) when ready
     function initGoogleApi() {
-      gapi.load("client:auth2", async () => {
-        try {
-          await gapi.client.init({
-            clientId: GOOGLE_CLIENT_ID,
-            scope: "https://www.googleapis.com/auth/drive"
-          });
-          gapi_loaded = true;
-          const auth = gapi.auth2.getAuthInstance();
-          // Update button text according to sign-in state
-          function updateGoogleButton() {
-            // enable button once gapi/auth is initialized
-            if (googleSignInBtn) googleSignInBtn.disabled = false;
-            if (auth.isSignedIn.get()) {
-              googleSignInBtn.textContent = "Cerrar sesión de Google";
-              googleAuthStatus.textContent = '(Google: conectado)';
-              testLoadBtn.style.display = '';
-              testSaveBtn.style.display = '';
-            } else {
-              googleSignInBtn.textContent = "Iniciar sesión con Google (para guardar en Drive)";
-              googleAuthStatus.textContent = '(Google: desconectado)';
-              testLoadBtn.style.display = 'none';
-              testSaveBtn.style.display = 'none';
-            }
-          }
-          auth.isSignedIn.listen(updateGoogleButton);
-          updateGoogleButton();
-          // When signing in, load ratings
-          auth.currentUser.listen(async () => {
-            if (auth.isSignedIn.get()) {
-              ratings = await loadRatingsFromDrive() || ratings;
-            }
-          });
-        } catch (err) {
-          console.error("Error iniciando Google API:", err);
-        }
-      });
+      // Disabled - gapi.auth2 is deprecated
     }
 
-    // Trigger Google sign-in / sign-out
+    // Trigger Google sign-in / sign-out - DISABLED
     googleSignInBtn.addEventListener("click", async () => {
-      if (!gapi_loaded) return alert('Google API no cargada aún.');
-      const auth = gapi.auth2.getAuthInstance();
-      if (!auth.isSignedIn.get()) {
-        try {
-          await auth.signIn();
-          ratings = await loadRatingsFromDrive() || ratings;
-          saveMsgEl.textContent = "Conectado a Google Drive.";
-        } catch (err) {
-          console.error('Error en signIn:', err);
-          alert('No se pudo autenticar con Google.');
-        }
-      } else {
-        await auth.signOut();
-        saveMsgEl.textContent = "Sesión de Google cerrada.";
-      }
+      alert('Google Drive integration está siendo migrado a Google Identity Services. Por ahora usa Firebase para autenticarte.');
     });
 
     // Test buttons for Drive read/write (manual test helpers)
