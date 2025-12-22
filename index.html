@@ -36,6 +36,7 @@
     <header class="topbar">
       <div>
         <strong id="userEmail"></strong>
+        <span id="googleAuthStatus" style="margin-left:12px;font-size:0.9em;color:#555">(Google: desconectado)</span>
       </div>
       <button id="logoutBtn">Salir</button>
     </header>
@@ -57,6 +58,10 @@
           Tu puntuación: <span id="myRating">—</span>
         </div>
         <p id="saveMsg" class="success"></p>
+        <div style="margin-top:10px">
+          <button id="testLoadBtn">Probar cargar desde Drive</button>
+          <button id="testSaveBtn">Probar guardar en Drive</button>
+        </div>
       </div>
     </main>
   </section>
@@ -92,6 +97,9 @@
     const myRatingEl  = document.getElementById("myRating");
     const saveMsgEl   = document.getElementById("saveMsg");
     const googleSignInBtn = document.getElementById("googleSignInBtn");
+    const googleAuthStatus = document.getElementById("googleAuthStatus");
+    const testLoadBtn = document.getElementById("testLoadBtn");
+    const testSaveBtn = document.getElementById("testSaveBtn");
 
     // Cargar credentials.json (lista de usuarios locales)
     async function loadCredentials() {
@@ -119,8 +127,14 @@
           function updateGoogleButton() {
             if (auth.isSignedIn.get()) {
               googleSignInBtn.textContent = "Cerrar sesión de Google";
+              googleAuthStatus.textContent = '(Google: conectado)';
+              testLoadBtn.style.display = '';
+              testSaveBtn.style.display = '';
             } else {
               googleSignInBtn.textContent = "Iniciar sesión con Google (para guardar en Drive)";
+              googleAuthStatus.textContent = '(Google: desconectado)';
+              testLoadBtn.style.display = 'none';
+              testSaveBtn.style.display = 'none';
             }
           }
           auth.isSignedIn.listen(updateGoogleButton);
@@ -154,6 +168,29 @@
         await auth.signOut();
         saveMsgEl.textContent = "Sesión de Google cerrada.";
       }
+    });
+
+    // Test buttons for Drive read/write (manual test helpers)
+    testLoadBtn.addEventListener('click', async () => {
+      saveMsgEl.textContent = 'Cargando desde Drive...';
+      const data = await loadRatingsFromDrive();
+      if (data && Object.keys(data).length) {
+        saveMsgEl.textContent = 'Ratings cargados desde Drive (' + Object.keys(data).length + ')';
+        ratings = data;
+      } else {
+        saveMsgEl.textContent = 'No se encontraron ratings en Drive.';
+      }
+    });
+
+    testSaveBtn.addEventListener('click', async () => {
+      if (!currentUser) return alert('Inicia sesión antes.');
+      // create a sample rating for the current user+current image
+      const imageId = IMAGES[index] ? IMAGES[index].id : 'sample';
+      const key = `${currentUser.email}_${imageId}`;
+      ratings[key] = ratings[key] ? ratings[key] : 5;
+      saveMsgEl.textContent = 'Guardando en Drive...';
+      const ok = await saveRatingsToDrive(ratings);
+      saveMsgEl.textContent = ok ? 'Guardado en Drive (prueba)' : 'Error guardando en Drive.';
     });
 
     // Load ratings JSON from Drive
