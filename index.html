@@ -42,7 +42,6 @@
     <main class="gallery">
       <div class="photo-container">
         <img id="photoImg" alt="Foto" />
-        <h2 id="photoTitle"></h2>
       </div>
 
       <div class="controls">
@@ -52,9 +51,6 @@
 
       <div class="rating">
         <div id="stars" class="stars" aria-label="Puntuación de 1 a 5 estrellas"></div>
-        <div class="current">
-          Tu puntuación: <span id="myRating">—</span>
-        </div>
         <p id="saveMsg" class="success"></p>
       </div>
     </main>
@@ -88,11 +84,9 @@
     const forgotLink  = document.getElementById("forgotLink");
 
     const photoImg    = document.getElementById("photoImg");
-    const photoTitle  = document.getElementById("photoTitle");
     const prevBtn     = document.getElementById("prevBtn");
     const nextBtn     = document.getElementById("nextBtn");
     const starsEl     = document.getElementById("stars");
-    const myRatingEl  = document.getElementById("myRating");
     const saveMsgEl   = document.getElementById("saveMsg");
     const progressEl  = document.getElementById("progress");
 
@@ -120,7 +114,7 @@
             (async () => {
               await loadImages();
               await loadRatingsFromFirestore();
-              index = 0;
+              // index ya está seteado por loadRatingsFromFirestore si hay datos, sino es 0
               await showPhoto();
             })();
           } else {
@@ -197,7 +191,6 @@
       if (!IMAGES[index]) return;
       const img = IMAGES[index];
       photoImg.src = img.url;
-      photoTitle.textContent = img.titulo || img.id;
       saveMsgEl.textContent = "";
       await loadMyRating(img.id);
       preloadNext();
@@ -235,7 +228,6 @@
       if (!currentUser) return;
       const key = `${currentUser.email}_${imageId}`;
       const stars = ratings[key] || 0;
-      myRatingEl.textContent = stars ? `${stars}` : "—";
       renderStars(stars);
     }
 
@@ -249,7 +241,6 @@
       const key = `${currentUser.email}_${imageId}`;
       ratings[key] = stars;
       saveMsgEl.textContent = "¡Guardado!";
-      myRatingEl.textContent = stars;
       renderStars(stars);
       // Persist to localStorage and Firestore
       saveRatingsToLocalStorage();
@@ -294,6 +285,7 @@
 
     async function loadRatingsFromFirestore() {
       if (!currentUser || !firestore) {
+        index = 0;
         loadRatingsFromLocalStorage();
         return;
       }
@@ -304,14 +296,16 @@
         if (docSnap.exists()) {
           const data = docSnap.data();
           ratings = data.ratings || {};
-          index = data.lastIndex || 0;
+          index = data.lastIndex !== undefined ? data.lastIndex : 0;
           console.log('Ratings loaded from Firestore, resuming at index', index);
         } else {
           console.log('No ratings found in Firestore, starting fresh');
+          index = 0;
           loadRatingsFromLocalStorage();
         }
       } catch (err) {
         console.error('Error loading ratings from Firestore:', err);
+        index = 0;
         loadRatingsFromLocalStorage();
       }
     }
