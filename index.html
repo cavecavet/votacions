@@ -220,7 +220,12 @@
 
     // Inicializar
     (async () => {
-      await loadCredentials();
+      if (typeof loadCredentials === "function") {
+        await loadCredentials();
+      } else {
+        console.warn("loadCredentials no disponible; se continúa sin credenciales locales.");
+        credentials = [];
+      }
       renderStars(0);
       console.log('App initialized with local credentials');
     })();
