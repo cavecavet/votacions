@@ -324,19 +324,26 @@
       renderStars(stars);
     }
 
-    // Login using Firebase Auth
+    // Login using local credentials.json
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       loginError.textContent = "";
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
       console.log('Attempting login with email:', email);
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
+      const user = credentials.find(u => u.email === email && u.password === password);
+      if (user) {
         console.log('Login successful');
-      } catch (err) {
-        console.error('Firebase login error:', err.code, err.message);
-        loginError.textContent = "Error al iniciar sesión. Verifica correo/contraseña.";
+        currentUser = { email };
+        userEmailEl.textContent = email;
+        authSection.classList.add("hidden");
+        appSection.classList.remove("hidden");
+        await loadImages();
+        index = 0;
+        await showPhoto();
+      } else {
+        console.log('Login failed: invalid credentials');
+        loginError.textContent = "Email o contraseña incorrectos.";
       }
     });
 
@@ -365,34 +372,12 @@
       loginForm.reset();
     });
 
-    // Auth state handling
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        userEmailEl.textContent = user.email || "";
-        authSection.classList.add("hidden");
-        appSection.classList.remove("hidden");
-
-        // load images and ratings (Drive) for the logged user
-        ratings = await loadRatingsFromDrive();
-        await loadImages();
-        index = 0;
-        await showPhoto();
-      } else {
-        currentUser = null;
-        authSection.classList.remove("hidden");
-        appSection.classList.add("hidden");
-      }
-    });
-
-    // Inicializar
+    // Auth state handling (local credentials)
     (async () => {
-      // initGoogleApi(); // Temporarily disabled (deprecated gapi.auth2)
-      // TODO: Migrate to Google Identity Services (GIS) when ready
+      // Load credentials from credentials.json
+      await loadCredentials();
       renderStars(0);
-      // Log Firebase initialization for debugging
-      console.log('Firebase initialized with projectId:', db.app.options.projectId);
-      console.log('Auth initialized, checking sign-in methods...');
+      console.log('App initialized with local credentials');
     })();
   </script>
 </body>
