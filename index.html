@@ -21,6 +21,7 @@
         <input type="password" id="password" required />
       </label>
       <button type="submit">Entrar</button>
+      <button type="button" id="checkUserBtn" style="margin-left:8px">Comprobar usuario</button>
     </form>
     <div style="margin-top:12px">
       <button id="googleSignInBtn">Iniciar sesión con Google (para guardar en Drive)</button>
@@ -72,7 +73,7 @@
     // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
-      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail
+      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, fetchSignInMethodsForEmail
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, serverTimestamp
@@ -109,6 +110,7 @@
     const googleAuthStatus = document.getElementById("googleAuthStatus");
     const testLoadBtn = document.getElementById("testLoadBtn");
     const testSaveBtn = document.getElementById("testSaveBtn");
+    const checkUserBtn = document.getElementById("checkUserBtn");
 
     // Disable Google sign-in button until API initialized
     if (googleSignInBtn) googleSignInBtn.disabled = true;
@@ -207,6 +209,25 @@
       const ok = await saveRatingsToDrive(ratings);
       saveMsgEl.textContent = ok ? 'Guardado en Drive (prueba)' : 'Error guardando en Drive.';
     });
+
+    // Comprobar si el email está registrado (sin intentar login)
+    if (checkUserBtn) {
+      checkUserBtn.addEventListener('click', async () => {
+        const email = document.getElementById('email').value.trim();
+        if (!email) return loginError.textContent = 'Introduce un correo para comprobar.';
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, email);
+          if (methods && methods.length > 0) {
+            loginError.textContent = `El email está registrado (métodos: ${methods.join(', ')}).`;
+          } else {
+            loginError.textContent = 'No existe ningún usuario con ese correo.';
+          }
+        } catch (err) {
+          console.error('Error comprobando usuario:', err);
+          loginError.textContent = 'Error al comprobar el usuario.';
+        }
+      });
+    }
 
     // Load ratings JSON from Drive
     async function loadRatingsFromDrive() {
