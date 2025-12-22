@@ -135,14 +135,28 @@ Para que solo usuarios autenticados puedan leer/escribir:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /ratings/{document=**} {
-      allow read, write: if request.auth != null;
+    match /users/{uid}/ratings_data/{document=**} {
+      allow read, write: if request.auth.uid == uid;
     }
   }
 }
 ```
 
 3. Haz clic **Publicar**
+
+## 9. Reset de Contraseña
+
+Cuando un usuario hace clic en "¿Olvidaste tu contraseña?":
+
+1. Firebase envía un email de reset a la dirección registrada
+2. El email se envía desde `noreply@firebase.com`
+3. **Comprueba spam/promociones** si no lo ves en la bandeja
+4. **El usuario debe existir en Firebase Authentication** antes de poder resetear su contraseña
+
+Si no recibe el email:
+- Verifica que el usuario esté registrado en **Authentication** → **Usuarios**
+- Algunos proveedores de email bloquean correos de Firebase; prueba con otro email
+- Espera unos minutos (Firebase puede tener retrasos)
 
 ## Troubleshooting
 
