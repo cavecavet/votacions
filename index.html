@@ -72,7 +72,7 @@
     // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
-      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, serverTimestamp
@@ -110,6 +110,9 @@
     const testLoadBtn = document.getElementById("testLoadBtn");
     const testSaveBtn = document.getElementById("testSaveBtn");
 
+    // Disable Google sign-in button until API initialized
+    if (googleSignInBtn) googleSignInBtn.disabled = true;
+
     // Firebase config & init
     const firebaseConfig = {
       apiKey: "AIzaSyBJaD7hIrBr6o05pQ-y8875uoQ_jZFCX_g",
@@ -135,6 +138,8 @@
           const auth = gapi.auth2.getAuthInstance();
           // Update button text according to sign-in state
           function updateGoogleButton() {
+            // enable button once gapi/auth is initialized
+            if (googleSignInBtn) googleSignInBtn.disabled = false;
             if (auth.isSignedIn.get()) {
               googleSignInBtn.textContent = "Cerrar sesión de Google";
               googleAuthStatus.textContent = '(Google: conectado)';
@@ -358,7 +363,22 @@
       }
     });
 
-    forgotLink.addEventListener("click", (e) => { e.preventDefault(); loginError.textContent = "Contacta al administrador."; });
+    forgotLink.addEventListener("click", async (e) => {
+      e.preventDefault();
+      loginError.textContent = "";
+      const email = document.getElementById("email").value.trim();
+      if (!email) {
+        loginError.textContent = "Introduce tu correo y pulsa de nuevo.";
+        return;
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        loginError.textContent = "Te hemos enviado un correo para restablecer la contraseña.";
+      } catch (err) {
+        console.error('Error enviando reset:', err);
+        loginError.textContent = "No se pudo enviar el correo. Verifica el correo.";
+      }
+    });
 
     logoutBtn.addEventListener("click", async () => {
       if (Object.keys(ratings).length > 0) await saveRatingsToDrive(ratings);
