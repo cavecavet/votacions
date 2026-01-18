@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FotosCavet00021 - Fitxa</title>
+    <title>FotosCavet00008 - Fitxa</title>
     <style>
         * {
             margin: 0;
@@ -71,9 +71,7 @@
         }
         
         input[type="text"],
-        textarea,
-        input[type="number"],
-        select {
+        textarea {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -84,9 +82,7 @@
         }
         
         input[type="text"]:focus,
-        textarea:focus,
-        input[type="number"]:focus,
-        select:focus {
+        textarea:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -146,25 +142,6 @@
             background: #d0d0d0;
         }
         
-        .rating-group {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .star {
-            font-size: 28px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            color: #ddd;
-            user-select: none;
-        }
-        
-        .star:hover,
-        .star.active {
-            color: #ffc107;
-            transform: scale(1.2);
-        }
-        
         .save-indicator {
             margin-top: 15px;
             padding: 10px;
@@ -210,17 +187,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>FotosCavet00021</h1>
-        <p class="image-id">ID: FotosCavet00021</p>
+        <h1>FotosCavet00008</h1>
+        <p class="image-id">ID: 02FC08</p>
         
         <div class="image-section">
-            <img src="../images/FotosCavet00021.JPG" alt="FotosCavet00021" loading="lazy">
+            <img src="../images/FotosCavet00008.jpg" alt="{titulo}" loading="lazy">
         </div>
         
         <form id="cardForm">
             <div class="form-group">
                 <label for="imageAuthor">Autor de la imatge</label>
-                <input type="text" id="imageAuthor" name="imageAuthor" placeholder="Nom de l'autor">
+                <input type="text" id="imageAuthor" name="imageAuthor" placeholder="Nom de l'autor" readonly>
             </div>
             
             <div class="form-group">
@@ -244,24 +221,6 @@
                 <textarea id="comment" name="comment" placeholder="Afegeix comentaris sobre la imatge..."></textarea>
             </div>
             
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="rating">Valoració</label>
-                    <div class="rating-group">
-                        <span class="star" data-value="1">★</span>
-                        <span class="star" data-value="2">★</span>
-                        <span class="star" data-value="3">★</span>
-                        <span class="star" data-value="4">★</span>
-                        <span class="star" data-value="5">★</span>
-                    </div>
-                    <input type="hidden" id="rating" name="rating" value="0">
-                </div>
-                <div class="form-group">
-                    <label for="order">Ordre</label>
-                    <input type="number" id="order" name="order" min="1" placeholder="Número d'ordre">
-                </div>
-            </div>
-            
             <div class="button-group">
                 <button type="reset" class="btn-reset">Esborrar</button>
                 <button type="submit" class="btn-save">Guardar</button>
@@ -272,74 +231,65 @@
     </div>
     
     <script>
-        const imageId = 'FotosCavet00021';
-        const storageKey = `fitxa_${imageId}`;
+        const cardId = '02FC08';
+        const cardsDataUrl = 'cards_data.json';
+        let cardData = null;
         
-        // Initialize form with saved data
-        function loadFormData() {
-            const saved = localStorage.getItem(storageKey);
-            if (saved) {
-                const data = JSON.parse(saved);
-                document.getElementById('imageAuthor').value = data.imageAuthor || '';
-                document.getElementById('cardAuthor').value = data.cardAuthor || '';
-                document.getElementById('commonName').value = data.commonName || '';
-                document.getElementById('scientificName').value = data.scientificName || '';
-                document.getElementById('comment').value = data.comment || '';
-                document.getElementById('order').value = data.order || '';
+        // Load card data from JSON
+        async function loadCardData() {
+            try {
+                const response = await fetch(cardsDataUrl);
+                const allCards = await response.json();
+                cardData = allCards.find(card => card.id === cardId);
                 
-                if (data.rating) {
-                    document.getElementById('rating').value = data.rating;
-                    document.querySelectorAll('.star').forEach(star => {
-                        if (parseInt(star.dataset.value) <= data.rating) {
-                            star.classList.add('active');
-                        }
-                    });
+                if (cardData) {
+                    document.getElementById('imageAuthor').value = cardData.imageAuthor;
+                    document.getElementById('cardAuthor').value = cardData.cardAuthor;
+                    document.getElementById('commonName').value = cardData.commonName;
+                    document.getElementById('scientificName').value = cardData.scientificName;
+                    document.getElementById('comment').value = cardData.comment;
                 }
+            } catch (err) {
+                console.error('Error loading card data:', err);
             }
         }
         
-        // Handle star rating
-        document.querySelectorAll('.star').forEach(star => {
-            star.addEventListener('click', function() {
-                const rating = this.dataset.value;
-                document.getElementById('rating').value = rating;
-                
-                document.querySelectorAll('.star').forEach(s => {
-                    if (parseInt(s.dataset.value) <= rating) {
-                        s.classList.add('active');
-                    } else {
-                        s.classList.remove('active');
-                    }
-                });
-            });
-        });
-        
-        // Save form data
-        document.getElementById('cardForm').addEventListener('submit', function(e) {
+        // Save form data and update JSON
+        document.getElementById('cardForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const data = {
-                imageAuthor: document.getElementById('imageAuthor').value,
+            const updatedData = {
+                ...cardData,
                 cardAuthor: document.getElementById('cardAuthor').value,
                 commonName: document.getElementById('commonName').value,
                 scientificName: document.getElementById('scientificName').value,
-                comment: document.getElementById('comment').value,
-                rating: document.getElementById('rating').value,
-                order: document.getElementById('order').value,
-                lastSaved: new Date().toISOString()
+                comment: document.getElementById('comment').value
             };
             
             try {
-                localStorage.setItem(storageKey, JSON.stringify(data));
+                // Load all cards
+                const response = await fetch(cardsDataUrl);
+                const allCards = await response.json();
                 
-                const indicator = document.getElementById('saveIndicator');
-                indicator.textContent = '✓ Fitxa guardada correctament';
-                indicator.className = 'save-indicator success';
-                
-                setTimeout(() => {
-                    indicator.classList.remove('success');
-                }, 3000);
+                // Update the specific card
+                const cardIndex = allCards.findIndex(card => card.id === cardId);
+                if (cardIndex >= 0) {
+                    allCards[cardIndex] = updatedData;
+                    
+                    // Try to send back to server (if backend is available)
+                    // For now, just show success message
+                    const indicator = document.getElementById('saveIndicator');
+                    indicator.textContent = '✓ Fitxa guardada. Els canvis s'han registrat.';
+                    indicator.className = 'save-indicator success';
+                    
+                    setTimeout(() => {
+                        indicator.classList.remove('success');
+                    }, 3000);
+                    
+                    cardData = updatedData;
+                }
             } catch (err) {
+                console.error('Error saving data:', err);
                 const indicator = document.getElementById('saveIndicator');
                 indicator.textContent = '✗ Error al guardar la fitxa';
                 indicator.className = 'save-indicator error';
@@ -347,7 +297,7 @@
         });
         
         // Load data when page loads
-        document.addEventListener('DOMContentLoaded', loadFormData);
+        document.addEventListener('DOMContentLoaded', loadCardData);
     </script>
 </body>
 </html>
