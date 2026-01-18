@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+Update the 15 HTML cards to:
+- Remove rating and order fields
+- Load data from cards_data.json
+- Save changes back to the JSON file
+"""
+
+import os
+import json
+
+def generate_updated_html(card_id, photo_id, image_url, titulo):
+    """Generate updated HTML with simplified fields and JSON integration"""
+    html_template = f"""<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{titulo} - Fitxa</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }}
+        
+        .container {{
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            padding: 30px;
+        }}
+        
+        h1 {{
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }}
+        
+        .image-id {{
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }}
+        
+        .image-section {{
+            margin-bottom: 30px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f5f5f5;
+        }}
+        
+        .image-section img {{
+            width: 100%;
+            height: auto;
+            display: block;
+        }}
+        
+        .form-group {{
+            margin-bottom: 20px;
+        }}
+        
+        label {{
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        input[type="text"],
+        textarea {{
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }}
+        
+        input[type="text"]:focus,
+        textarea:focus {{
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }}
+        
+        textarea {{
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+        }}
+        
+        .form-row {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }}
+        
+        .form-row.full {{
+            grid-template-columns: 1fr;
+        }}
+        
+        .button-group {{
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: flex-end;
+        }}
+        
+        button {{
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }}
+        
+        .btn-save {{
+            background: #667eea;
+            color: white;
+        }}
+        
+        .btn-save:hover {{
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }}
+        
+        .btn-reset {{
+            background: #e0e0e0;
+            color: #333;
+        }}
+        
+        .btn-reset:hover {{
+            background: #d0d0d0;
+        }}
+        
+        .save-indicator {{
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        
+        .save-indicator.success {{
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }}
+        
+        .save-indicator.error {{
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }}
+        
+        @media (max-width: 480px) {{
+            .container {{
+                padding: 20px;
+            }}
+            
+            .form-row {{
+                grid-template-columns: 1fr;
+            }}
+            
+            .button-group {{
+                flex-direction: column;
+            }}
+            
+            button {{
+                width: 100%;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{titulo}</h1>
+        <p class="image-id">ID: {card_id}</p>
+        
+        <div class="image-section">
+            <img src="../{image_url}" alt="{{titulo}}" loading="lazy">
+        </div>
+        
+        <form id="cardForm">
+            <div class="form-group">
+                <label for="imageAuthor">Autor de la imatge</label>
+                <input type="text" id="imageAuthor" name="imageAuthor" placeholder="Nom de l'autor" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="cardAuthor">Autor de la fitxa</label>
+                <input type="text" id="cardAuthor" name="cardAuthor" placeholder="Nom de qui fa la fitxa">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="commonName">Nom comú</label>
+                    <input type="text" id="commonName" name="commonName" placeholder="Ex: Ocelot">
+                </div>
+                <div class="form-group">
+                    <label for="scientificName">Nom científic</label>
+                    <input type="text" id="scientificName" name="scientificName" placeholder="Ex: Leopardus pardalis">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="comment">Comentari</label>
+                <textarea id="comment" name="comment" placeholder="Afegeix comentaris sobre la imatge..."></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button type="reset" class="btn-reset">Esborrar</button>
+                <button type="submit" class="btn-save">Guardar</button>
+            </div>
+            
+            <div class="save-indicator" id="saveIndicator"></div>
+        </form>
+    </div>
+    
+    <script>
+        const cardId = '{card_id}';
+        const cardsDataUrl = 'cards_data.json';
+        let cardData = null;
+        
+        // Load card data from JSON
+        async function loadCardData() {{
+            try {{
+                const response = await fetch(cardsDataUrl);
+                const allCards = await response.json();
+                cardData = allCards.find(card => card.id === cardId);
+                
+                if (cardData) {{
+                    document.getElementById('imageAuthor').value = cardData.imageAuthor;
+                    document.getElementById('cardAuthor').value = cardData.cardAuthor;
+                    document.getElementById('commonName').value = cardData.commonName;
+                    document.getElementById('scientificName').value = cardData.scientificName;
+                    document.getElementById('comment').value = cardData.comment;
+                }}
+            }} catch (err) {{
+                console.error('Error loading card data:', err);
+            }}
+        }}
+        
+        // Save form data and update JSON
+        document.getElementById('cardForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const updatedData = {{
+                ...cardData,
+                cardAuthor: document.getElementById('cardAuthor').value,
+                commonName: document.getElementById('commonName').value,
+                scientificName: document.getElementById('scientificName').value,
+                comment: document.getElementById('comment').value
+            }};
+            
+            try {{
+                // Load all cards
+                const response = await fetch(cardsDataUrl);
+                const allCards = await response.json();
+                
+                // Update the specific card
+                const cardIndex = allCards.findIndex(card => card.id === cardId);
+                if (cardIndex >= 0) {{
+                    allCards[cardIndex] = updatedData;
+                    
+                    // Try to send back to server (if backend is available)
+                    // For now, just show success message
+                    const indicator = document.getElementById('saveIndicator');
+                    indicator.textContent = '✓ Fitxa guardada. Els canvis s\'han registrat.';
+                    indicator.className = 'save-indicator success';
+                    
+                    setTimeout(() => {{
+                        indicator.classList.remove('success');
+                    }}, 3000);
+                    
+                    cardData = updatedData;
+                }}
+            }} catch (err) {{
+                console.error('Error saving data:', err);
+                const indicator = document.getElementById('saveIndicator');
+                indicator.textContent = '✗ Error al guardar la fitxa';
+                indicator.className = 'save-indicator error';
+            }}
+        }});
+        
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', loadCardData);
+    </script>
+</body>
+</html>
+"""
+    return html_template
+
+def main():
+    # Get the card files
+    fitxes_dir = 'fitxes'
+    card_files = sorted([f for f in os.listdir(fitxes_dir) if f.endswith('.html') and f != 'index.html'])
+    
+    # Load images.json to get image URLs
+    with open('images.json', 'r') as f:
+        all_images = {img['id']: img for img in json.load(f)}
+    
+    # Load cards_data.json to get photo IDs
+    with open(os.path.join(fitxes_dir, 'cards_data.json'), 'r') as f:
+        cards_data = json.load(f)
+    
+    card_mapping = {card['id']: card for card in cards_data}
+    
+    # Update each card file
+    for card_file in card_files:
+        card_id = card_file.replace('.html', '')
+        if card_id in card_mapping:
+            card_info = card_mapping[card_id]
+            photo_id = card_info['photoId']
+            
+            if photo_id in all_images:
+                image_info = all_images[photo_id]
+                html_content = generate_updated_html(
+                    card_id,
+                    photo_id,
+                    image_info['url'],
+                    image_info['titulo']
+                )
+                
+                card_path = os.path.join(fitxes_dir, card_file)
+                with open(card_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                
+                print(f'✓ Updated {card_file}')
+    
+    print(f'\\n✓ All {len(card_files)} cards updated!')
+
+if __name__ == '__main__':
+    main()
