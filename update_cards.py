@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
-Update the 15 HTML cards to:
-- Remove rating and order fields
-- Load data from cards_data.json
-- Save changes back to the JSON file
+Update cards with Google Sheets integration
 """
 
 import os
 import json
 
 def generate_updated_html(card_id, photo_id, image_url, titulo):
-    """Generate updated HTML with simplified fields and JSON integration"""
+    """Generate updated HTML with Google Sheets integration"""
     html_template = f"""<!DOCTYPE html>
 <html lang="ca">
 <head>
@@ -123,6 +120,7 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
             gap: 10px;
             margin-top: 30px;
             justify-content: flex-end;
+            flex-wrap: wrap;
         }}
         
         button {{
@@ -155,9 +153,20 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
             background: #d0d0d0;
         }}
         
+        .btn-export {{
+            background: #17a2b8;
+            color: white;
+            font-size: 12px;
+            padding: 10px 16px;
+        }}
+        
+        .btn-export:hover {{
+            background: #138496;
+        }}
+        
         .save-indicator {{
             margin-top: 15px;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             text-align: center;
             display: none;
@@ -177,6 +186,13 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }}
+        
+        .save-indicator.info {{
+            display: block;
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }}
         
         @media (max-width: 480px) {{
@@ -210,7 +226,7 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
         <form id="cardForm">
             <div class="form-group">
                 <label for="imageAuthor">Autor de la imatge</label>
-                <input type="text" id="imageAuthor" name="imageAuthor" placeholder="Nom de l'autor" readonly>
+                <input type="text" id="imageAuthor" name="imageAuthor" placeholder="Nom de l'autor">
             </div>
             
             <div class="form-group">
@@ -237,6 +253,7 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
             <div class="button-group">
                 <button type="reset" class="btn-reset">Esborrar</button>
                 <button type="submit" class="btn-save">Guardar</button>
+                <button type="button" class="btn-export" id="exportBtn">Exportar JSON</button>
             </div>
             
             <div class="save-indicator" id="saveIndicator"></div>
@@ -245,68 +262,131 @@ def generate_updated_html(card_id, photo_id, image_url, titulo):
     
     <script>
         const cardId = '{card_id}';
+        const photoId = '{photo_id}';
+        const storageKey = `fitxa_${{cardId}}`;
         const cardsDataUrl = 'cards_data.json';
-        let cardData = null;
+        let googleSheetsUrl = null;
         
-        // Load card data from JSON
+        // Load Google Sheets config
+        fetch('config.json')
+            .then(r => r.json())
+            .then(config => {{
+                googleSheetsUrl = config.googleSheetsUrl;
+            }})
+            .catch(err => console.log('Config not found, using localStorage only'));
+        
+        // Load card data from localStorage or JSON
         async function loadCardData() {{
             try {{
-                const response = await fetch(cardsDataUrl);
-                const allCards = await response.json();
-                cardData = allCards.find(card => card.id === cardId);
+                // First try localStorage
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {{
+                    const data = JSON.parse(saved);
+                    populateForm(data);
+                    console.log('Loaded from localStorage');
+                    return;
+                }}
                 
-                if (cardData) {{
-                    document.getElementById('imageAuthor').value = cardData.imageAuthor;
-                    document.getElementById('cardAuthor').value = cardData.cardAuthor;
-                    document.getElementById('commonName').value = cardData.commonName;
-                    document.getElementById('scientificName').value = cardData.scientificName;
-                    document.getElementById('comment').value = cardData.comment;
+                // If not in localStorage, load from JSON
+                const response = await fetch(cardsDataUrl);
+                if (response.ok) {{
+                    const allCards = await response.json();
+                    const cardData = allCards.find(card => card.id === cardId);
+                    
+                    if (cardData) {{
+                        populateForm(cardData);
+                        console.log('Loaded from cards_data.json');
+                    }}
                 }}
             }} catch (err) {{
                 console.error('Error loading card data:', err);
             }}
         }}
         
-        // Save form data and update JSON
-        document.getElementById('cardForm').addEventListener('submit', async function(e) {{
-            e.preventDefault();
-            
-            const updatedData = {{
-                ...cardData,
+        function populateForm(data) {{
+            document.getElementById('imageAuthor').value = data.imageAuthor || '';
+            document.getElementById('cardAuthor').value = data.cardAuthor || '';
+            document.getElementById('commonName').value = data.commonName || '';
+            document.getElementById('scientificName').value = data.scientificName || '';
+            document.getElementById('comment').value = data.comment || '';
+        }}
+        
+        // Get form data
+        function getFormData() {{
+            return {{
+                id: cardId,
+                photoId: photoId,
+                imageAuthor: document.getElementById('imageAuthor').value,
                 cardAuthor: document.getElementById('cardAuthor').value,
                 commonName: document.getElementById('commonName').value,
                 scientificName: document.getElementById('scientificName').value,
-                comment: document.getElementById('comment').value
+                comment: document.getElementById('comment').value,
+                lastSaved: new Date().toISOString()
             }};
+        }}
+        
+        // Save form data to localStorage and Google Sheets
+        document.getElementById('cardForm').addEventListener('submit', function(e) {{
+            e.preventDefault();
+            
+            const data = getFormData();
+            const indicator = document.getElementById('saveIndicator');
             
             try {{
-                // Load all cards
-                const response = await fetch(cardsDataUrl);
-                const allCards = await response.json();
+                // Save to localStorage
+                localStorage.setItem(storageKey, JSON.stringify(data));
                 
-                // Update the specific card
-                const cardIndex = allCards.findIndex(card => card.id === cardId);
-                if (cardIndex >= 0) {{
-                    allCards[cardIndex] = updatedData;
-                    
-                    // Try to send back to server (if backend is available)
-                    // For now, just show success message
-                    const indicator = document.getElementById('saveIndicator');
-                    indicator.textContent = '✓ Fitxa guardada. Els canvis s\'han registrat.';
+                // Try to save to Google Sheets
+                if (googleSheetsUrl && googleSheetsUrl.includes('script.google.com')) {{
+                    fetch(googleSheetsUrl, {{
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    }})
+                    .then(response => response.json())
+                    .then(result => {{
+                        if (result.status === 'success') {{
+                            indicator.textContent = '✓ Fitxa guardada al navegador i Google Sheets';
+                            indicator.className = 'save-indicator success';
+                        }} else {{
+                            indicator.textContent = '✓ Guardada al navegador (error a Google Sheets)';
+                            indicator.className = 'save-indicator success';
+                        }}
+                        setTimeout(() => {{ indicator.classList.remove('success'); }}, 3000);
+                    }})
+                    .catch(err => {{
+                        indicator.textContent = '✓ Guardada al navegador (error de connexió)';
+                        indicator.className = 'save-indicator success';
+                        setTimeout(() => {{ indicator.classList.remove('success'); }}, 3000);
+                    }});
+                }} else {{
+                    indicator.textContent = '✓ Fitxa guardada al navegador';
                     indicator.className = 'save-indicator success';
-                    
-                    setTimeout(() => {{
-                        indicator.classList.remove('success');
-                    }}, 3000);
-                    
-                    cardData = updatedData;
+                    setTimeout(() => {{ indicator.classList.remove('success'); }}, 3000);
                 }}
             }} catch (err) {{
                 console.error('Error saving data:', err);
-                const indicator = document.getElementById('saveIndicator');
                 indicator.textContent = '✗ Error al guardar la fitxa';
                 indicator.className = 'save-indicator error';
             }}
+        }});
+        
+        // Export button
+        document.getElementById('exportBtn').addEventListener('click', function() {{
+            const data = getFormData();
+            const jsonString = JSON.stringify(data, null, 2);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(jsonString).then(() => {{
+                const indicator = document.getElementById('saveIndicator');
+                indicator.textContent = '✓ JSON copiat al porta-retalls';
+                indicator.className = 'save-indicator info';
+                
+                setTimeout(() => {{
+                    indicator.classList.remove('info');
+                }}, 3000);
+            }}).catch(err => {{
+                console.error('Error copying to clipboard:', err);
+            }});
         }});
         
         // Load data when page loads
@@ -354,7 +434,7 @@ def main():
                 
                 print(f'✓ Updated {card_file}')
     
-    print(f'\\n✓ All {len(card_files)} cards updated!')
+    print(f'\n✓ All {len(card_files)} cards updated with Google Sheets integration!')
 
 if __name__ == '__main__':
     main()
