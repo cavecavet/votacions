@@ -252,8 +252,18 @@
     
     <script>
         const cardId = '15FC34';
+        const photoId = 'FotosCavet00034';
         const storageKey = `fitxa_${cardId}`;
         const cardsDataUrl = 'cards_data.json';
+        let googleSheetsUrl = null;
+        
+        // Load Google Sheets config
+        fetch('config.json')
+            .then(r => r.json())
+            .then(config => {
+                googleSheetsUrl = config.googleSheetsUrl;
+            })
+            .catch(err => console.log('Config not found, using localStorage only'));
         
         // Load card data from localStorage or JSON
         async function loadCardData() {
@@ -295,6 +305,7 @@
         function getFormData() {
             return {
                 id: cardId,
+                photoId: photoId,
                 imageAuthor: document.getElementById('imageAuthor').value,
                 cardAuthor: document.getElementById('cardAuthor').value,
                 commonName: document.getElementById('commonName').value,
@@ -304,25 +315,46 @@
             };
         }
         
-        // Save form data to localStorage
+        // Save form data to localStorage and Google Sheets
         document.getElementById('cardForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
             const data = getFormData();
+            const indicator = document.getElementById('saveIndicator');
             
             try {
+                // Save to localStorage
                 localStorage.setItem(storageKey, JSON.stringify(data));
                 
-                const indicator = document.getElementById('saveIndicator');
-                indicator.textContent = '✓ Fitxa guardada al navegador';
-                indicator.className = 'save-indicator success';
-                
-                setTimeout(() => {
-                    indicator.classList.remove('success');
-                }, 3000);
+                // Try to save to Google Sheets
+                if (googleSheetsUrl && googleSheetsUrl.includes('script.google.com')) {
+                    fetch(googleSheetsUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            indicator.textContent = '✓ Fitxa guardada al navegador i Google Sheets';
+                            indicator.className = 'save-indicator success';
+                        } else {
+                            indicator.textContent = '✓ Guardada al navegador (error a Google Sheets)';
+                            indicator.className = 'save-indicator success';
+                        }
+                        setTimeout(() => { indicator.classList.remove('success'); }, 3000);
+                    })
+                    .catch(err => {
+                        indicator.textContent = '✓ Guardada al navegador (error de connexió)';
+                        indicator.className = 'save-indicator success';
+                        setTimeout(() => { indicator.classList.remove('success'); }, 3000);
+                    });
+                } else {
+                    indicator.textContent = '✓ Fitxa guardada al navegador';
+                    indicator.className = 'save-indicator success';
+                    setTimeout(() => { indicator.classList.remove('success'); }, 3000);
+                }
             } catch (err) {
                 console.error('Error saving data:', err);
-                const indicator = document.getElementById('saveIndicator');
                 indicator.textContent = '✗ Error al guardar la fitxa';
                 indicator.className = 'save-indicator error';
             }
