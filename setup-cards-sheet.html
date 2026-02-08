@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Cards Sheet - Google Sheets</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            color: #2c3e50;
+            line-height: 1.8;
+            font-size: 14px;
+        }
+
+        .column-list {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+
+        .column-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .column-list th,
+        .column-list td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .column-list th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .column-list tr:last-child td {
+            border-bottom: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .result.success {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Setup Cards Sheet</h1>
+        <p class="subtitle">Configura la fulla de Google Sheets per emmagatzemar les dades de les fitxes</p>
+
+        <div class="info-box">
+            <strong>📌 Què és la fulla "Cards"?</strong><br>
+            És una fulla de Google Sheets que emmagatzemarà totes les dades editades de les 15 fitxes.
+            Cada vegada que un usuari guardi una fitxa, les dades es desaran aquí.
+        </div>
+
+        <!-- Step 1: Column Structure -->
+        <div class="section">
+            <h2><span class="step-number">1</span>Estructura de la Fulla "Cards"</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                La fulla tindrà les següents columnes:
+            </p>
+            <div class="column-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Col.</th>
+                            <th>Nom del Camp</th>
+                            <th>Descripció</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>A</strong></td>
+                            <td>Card ID</td>
+                            <td>ID de la fitxa (ex: 01FC05)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>B</strong></td>
+                            <td>Photo ID</td>
+                            <td>ID de la foto (ex: FotosCavet00005)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>C</strong></td>
+                            <td>Card Name</td>
+                            <td>Nom de la fitxa (camp nou)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>D</strong></td>
+                            <td>Foto Author</td>
+                            <td>Autor de la foto (camp nou, només lectura)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>E</strong></td>
+                            <td>Common Name</td>
+                            <td>Nom comú de l'espècie</td>
+                        </tr>
+                        <tr>
+                            <td><strong>F</strong></td>
+                            <td>Scientific Name</td>
+                            <td>Nom científic de l'espècie</td>
+                        </tr>
+                        <tr>
+                            <td><strong>G</strong></td>
+                            <td>Comment</td>
+                            <td>Comentaris sobre la fitxa</td>
+                        </tr>
+                        <tr>
+                            <td><strong>H</strong></td>
+                            <td>Card Author</td>
+                            <td>Autor de la fitxa</td>
+                        </tr>
+                        <tr>
+                            <td><strong>I</strong></td>
+                            <td>Last Modified</td>
+                            <td>Data de la darrera modificació</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Step 2: Auto Setup -->
+        <div class="section">
+            <h2><span class="step-number">2</span>Crear la Fulla Automàticament</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Utilitza el teu Google Apps Script URL per crear la fulla automàticament amb totes les columnes.
+            </p>
+            <div class="form-group">
+                <label for="scriptUrl">URL del Google Apps Script:</label>
+                <input type="text"
+                       id="scriptUrl"
+                       placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
+                       value="">
+            </div>
+            <button onclick="setupCardsSheet()" id="setupBtn">🚀 Crear Fulla "Cards"</button>
+            <div id="setupResult" class="result"></div>
+        </div>
+
+        <!-- Step 3: Manual Setup -->
+        <div class="section">
+            <h2><span class="step-number">3</span>Configuració Manual (Alternativa)</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Si prefereixes crear la fulla manualment:
+            </p>
+            <ol style="color: #666; margin-left: 20px; line-height: 1.8; font-size: 14px;">
+                <li>Obre el teu Google Sheet</li>
+                <li>Crea una nova fulla anomenada exactament <strong>"Cards"</strong></li>
+                <li>A la fila 1, afegeix les capçaleres segons la taula de dalt</li>
+                <li>Opcional: Formata la fila de capçaleres amb color de fons i text en negreta</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let scriptUrl = '';
+
+        // Load saved URL from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('testScriptUrl');
+            if (saved) {
+                scriptUrl = saved;
+                document.getElementById('scriptUrl').value = saved;
+            }
+        });
+
+        async function setupCardsSheet() {
+            const input = document.getElementById('scriptUrl').value.trim();
+
+            if (!input) {
+                showResult('setupResult', 'error', '❌ Si us plau, introdueix l\'URL del Google Apps Script');
+                return;
+            }
+
+            if (!input.includes('script.google.com')) {
+                showResult('setupResult', 'error', '❌ L\'URL no sembla ser de Google Apps Script');
+                return;
+            }
+
+            scriptUrl = input;
+            localStorage.setItem('testScriptUrl', input);
+
+            const btn = document.getElementById('setupBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Creant fulla...';
+
+            try {
+                const url = `${scriptUrl}?action=setupCardsSheet&t=${Date.now()}`;
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showResult('setupResult', 'success',
+                        `✓ Fulla "Cards" creada correctament!\n\n` +
+                        `Columnes creades: ${result.headers.join(', ')}\n\n` +
+                        `Ara pots anar al teu Google Sheet i veure la nova fulla "Cards".`
+                    );
+                } else {
+                    showResult('setupResult', 'error', `❌ Error:\n${result.message}`);
+                }
+            } catch (error) {
+                showResult('setupResult', 'error',
+                    `❌ Error de connexió:\n${error.message}\n\n` +
+                    `Assegura't que has actualitzat i desplegat el Google Apps Script.`
+                );
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Crear Fulla "Cards"';
+            }
+        }
+
+        function showResult(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+    </script>
+</body>
+</html>

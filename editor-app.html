@@ -476,7 +476,7 @@
                         </div>
                         <div class="form-group">
                             <label for="scientificName">Nom científic</label>
-                            <input type="text" id="scientificName" name="scientificName" placeholder="Ex: Leopardus pardalis">
+                            <input type="text" id="scientificName" name="scientificName" placeholder="Ex: Leopardus pardalis" readonly>
                         </div>
                     </div>
 
@@ -485,9 +485,15 @@
                         <textarea id="comment" name="comment" placeholder="Afegeix comentaris sobre la imatge..."></textarea>
                     </div>
 
-                    <div class="form-group">
-                        <label for="cardAuthor">Autor de la fitxa</label>
-                        <input type="text" id="cardAuthor" name="cardAuthor" readonly>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fotoAuthor">Autor de la foto</label>
+                            <input type="text" id="fotoAuthor" name="fotoAuthor" readonly placeholder="Autor de la imatge">
+                        </div>
+                        <div class="form-group">
+                            <label for="cardAuthor">Autor de la fitxa</label>
+                            <input type="text" id="cardAuthor" name="cardAuthor" readonly>
+                        </div>
                     </div>
 
                     <div class="save-indicator success" id="saveIndicator" style="display: none;">
@@ -626,13 +632,14 @@
 
                 // Load saved data
                 const savedData = loadCardData(mapping.cardId);
-                const displayName = savedData.commonName || savedData.scientificName || mapping.photoId;
+                const scientificName = savedData.scientificName || 'Nom científic no assignat';
+                const fotoAuthor = savedData.fotoAuthor || 'Autor desconegut';
 
                 cardElement.innerHTML = `
                     <img src="${imageData.url}" alt="${imageData.titulo}" loading="lazy">
                     <div class="card-info">
-                        <div class="card-id">${mapping.cardId}</div>
-                        <div class="card-name">${displayName}</div>
+                        <div class="card-id">${scientificName}</div>
+                        <div class="card-name">${fotoAuthor}</div>
                     </div>
                 `;
 
@@ -653,6 +660,7 @@
             document.getElementById('commonName').value = savedData.commonName || currentUserData?.commonName || '';
             document.getElementById('scientificName').value = savedData.scientificName || currentUserData?.scientificName || '';
             document.getElementById('comment').value = savedData.comment || currentUserData?.comment || '';
+            document.getElementById('fotoAuthor').value = savedData.fotoAuthor || currentUserData?.name || '';
             document.getElementById('cardAuthor').value = savedData.cardAuthor || currentUserData?.cardAuthor || currentUser;
 
             editorModal.classList.add('active');
@@ -685,6 +693,7 @@
                 commonName: document.getElementById('commonName').value,
                 scientificName: document.getElementById('scientificName').value,
                 comment: document.getElementById('comment').value,
+                fotoAuthor: document.getElementById('fotoAuthor').value,
                 cardAuthor: currentUser,
                 lastSaved: new Date().toISOString()
             };
