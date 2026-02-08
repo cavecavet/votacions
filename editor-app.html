@@ -510,7 +510,7 @@
 
     <script>
         // Google Apps Script URL for authentication
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyNB7hS_gtPAku11mDPxxloF4steXkudPxzUM4n2SyeIWSyVGdh4XQSv-lLkq8nlque_w/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz99Y370W8N0Lei19YkDTp4D9Kw6S9Q55Xhvf76MTSGKb4k7amBQbd0eeUkoq9IBy0wHg/exec';
 
         // Card IDs mapping to image IDs
         const CARD_MAPPINGS = [
@@ -535,6 +535,7 @@
         let currentUserData = null;
         let currentEditingCard = null;
         let imagesData = [];
+        let sheetsCardsData = {};
 
         // Elements
         const loginScreen = document.getElementById('loginScreen');
@@ -607,14 +608,24 @@
             loadCards();
         }
 
-        // Load cards
+        // Load cards and cards data from Google Sheets
         async function loadCards() {
             try {
-                const response = await fetch('images.json');
-                imagesData = await response.json();
+                const [imagesResponse, cardsResponse] = await Promise.all([
+                    fetch('images.json'),
+                    fetch(`${APPS_SCRIPT_URL}?action=getCards`)
+                ]);
+                imagesData = await imagesResponse.json();
+                const cardsResult = await cardsResponse.json();
+                if (cardsResult.status === 'success') {
+                    sheetsCardsData = {};
+                    cardsResult.cards.forEach(card => {
+                        sheetsCardsData[card.cardId] = card;
+                    });
+                }
                 renderCards();
             } catch (err) {
-                console.error('Error loading images:', err);
+                console.error('Error loading data:', err);
             }
         }
 
@@ -683,12 +694,15 @@
             }
         });
 
-        // Save card data
-        saveBtn.addEventListener('click', function() {
+        // Save card data to Google Sheets
+        saveBtn.addEventListener('click', async function() {
             if (!currentEditingCard) return;
 
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardant...';
+
             const data = {
-                id: currentEditingCard.cardId,
+                cardId: currentEditingCard.cardId,
                 photoId: currentEditingCard.photoId,
                 commonName: document.getElementById('commonName').value,
                 scientificName: document.getElementById('scientificName').value,
@@ -698,32 +712,39 @@
                 lastSaved: new Date().toISOString()
             };
 
-            // Save to localStorage
-            const storageKey = `fitxa_${currentEditingCard.cardId}`;
-            localStorage.setItem(storageKey, JSON.stringify(data));
+            try {
+                const params = Object.entries(data)
+                    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+                    .join('&');
+                const url = `${APPS_SCRIPT_URL}?action=saveCard&${params}`;
+                const response = await fetch(url);
+                const result = await response.json();
 
-            // Show success indicator
-            const indicator = document.getElementById('saveIndicator');
-            indicator.style.display = 'block';
-            setTimeout(() => {
-                indicator.style.display = 'none';
-            }, 2000);
+                if (result.status === 'success') {
+                    sheetsCardsData[data.cardId] = data;
 
-            // Update the card display
-            setTimeout(() => {
-                renderCards();
-                closeEditor();
-            }, 2000);
+                    const indicator = document.getElementById('saveIndicator');
+                    indicator.style.display = 'block';
+                    setTimeout(() => {
+                        indicator.style.display = 'none';
+                        renderCards();
+                        closeEditor();
+                    }, 1500);
+                } else {
+                    alert('Error guardant la fitxa: ' + (result.message || 'Error desconegut'));
+                }
+            } catch (error) {
+                console.error('Error saving card:', error);
+                alert('Error de connexió. Intenta-ho de nou.');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Guardar canvis';
+            }
         });
 
-        // Load card data from localStorage
+        // Load card data from Google Sheets cache
         function loadCardData(cardId) {
-            const storageKey = `fitxa_${cardId}`;
-            const saved = localStorage.getItem(storageKey);
-            if (saved) {
-                return JSON.parse(saved);
-            }
-            return {};
+            return sheetsCardsData[cardId] || {};
         }
 
         // Check if user is already logged in
