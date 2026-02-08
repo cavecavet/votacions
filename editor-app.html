@@ -42,6 +42,17 @@
             font-size: 28px;
         }
 
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 6px;
+            color: #2c3e50;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -412,6 +423,9 @@
     <div class="login-container" id="loginScreen">
         <div class="login-box">
             <h1>Editor de Fitxes</h1>
+            <div class="info-box">
+                A continuació veuràs 15 fotografies, algunes tenen el nom de l'usuari que ha "adoptat" l'espècie, d'altres estàn lliures. Si fas clic en una d'aquestes últimes podràs adoptar l'espècie simplement incorporant alguna de les dades que es demanen.
+            </div>
             <div class="error-message" id="loginError">Usuari o contrasenya incorrectes</div>
             <form id="loginForm">
                 <div class="form-group">
@@ -489,12 +503,8 @@
     </div>
 
     <script>
-        // Simple user database (in a real app, this would be on the server)
-        const USERS = {
-            'admin': 'admin123',
-            'juanvi': 'password',
-            'editor': 'editor123'
-        };
+        // Google Apps Script URL for authentication
+        const APPS_SCRIPT_URL = 'YOUR_DEPLOYED_SCRIPT_URL';
 
         // Card IDs mapping to image IDs
         const CARD_MAPPINGS = [
@@ -516,6 +526,7 @@
         ];
 
         let currentUser = null;
+        let currentUserData = null;
         let currentEditingCard = null;
         let imagesData = [];
 
@@ -534,25 +545,49 @@
         const editorForm = document.getElementById('editorForm');
 
         // Login handler
-        loginForm.addEventListener('submit', function(e) {
+        loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const loginBtn = document.querySelector('.login-btn');
 
-            if (USERS[username] && USERS[username] === password) {
-                currentUser = username;
-                sessionStorage.setItem('currentUser', username);
-                showApp();
-            } else {
+            // Disable button during login
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Iniciant sessió...';
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    currentUser = result.user.username;
+                    currentUserData = result.user;
+                    sessionStorage.setItem('currentUser', result.user.username);
+                    sessionStorage.setItem('userData', JSON.stringify(result.user));
+                    showApp();
+                } else {
+                    loginError.textContent = result.message || 'Usuari o contrasenya incorrectes';
+                    loginError.classList.add('show');
+                    setTimeout(() => loginError.classList.remove('show'), 3000);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginError.textContent = 'Error de connexió. Intenta-ho de nou.';
                 loginError.classList.add('show');
                 setTimeout(() => loginError.classList.remove('show'), 3000);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Iniciar sessió';
             }
         });
 
         // Logout handler
         logoutBtn.addEventListener('click', function() {
             currentUser = null;
+            currentUserData = null;
             sessionStorage.removeItem('currentUser');
+            sessionStorage.removeItem('userData');
             loginScreen.style.display = 'flex';
             appContainer.classList.remove('active');
             loginForm.reset();
@@ -562,7 +597,7 @@
         function showApp() {
             loginScreen.style.display = 'none';
             appContainer.classList.add('active');
-            currentUserSpan.textContent = currentUser;
+            currentUserSpan.textContent = currentUserData?.displayName || currentUser;
             loadCards();
         }
 
@@ -613,12 +648,12 @@
             document.getElementById('modalTitle').textContent = `${mapping.photoId} (${mapping.cardId})`;
             document.getElementById('modalImage').src = imageData.url;
 
-            // Load saved data
+            // Load saved data, or use user's default data from the sheet
             const savedData = loadCardData(mapping.cardId);
-            document.getElementById('commonName').value = savedData.commonName || '';
-            document.getElementById('scientificName').value = savedData.scientificName || '';
-            document.getElementById('comment').value = savedData.comment || '';
-            document.getElementById('cardAuthor').value = currentUser;
+            document.getElementById('commonName').value = savedData.commonName || currentUserData?.commonName || '';
+            document.getElementById('scientificName').value = savedData.scientificName || currentUserData?.scientificName || '';
+            document.getElementById('comment').value = savedData.comment || currentUserData?.comment || '';
+            document.getElementById('cardAuthor').value = savedData.cardAuthor || currentUserData?.cardAuthor || currentUser;
 
             editorModal.classList.add('active');
         }
@@ -684,8 +719,10 @@
 
         // Check if user is already logged in
         const savedUser = sessionStorage.getItem('currentUser');
-        if (savedUser && USERS[savedUser]) {
+        const savedUserData = sessionStorage.getItem('userData');
+        if (savedUser && savedUserData) {
             currentUser = savedUser;
+            currentUserData = JSON.parse(savedUserData);
             showApp();
         }
     </script>

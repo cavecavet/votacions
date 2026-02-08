@@ -54,5 +54,46 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  const action = e.parameter.action;
+
+  if (action === 'login') {
+    return authenticateUser(e.parameter.username, e.parameter.password);
+  }
+
   return ContentService.createTextOutput("Google Sheet integration is ready. Send POST requests with card data.");
+}
+
+function authenticateUser(username, password) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Users");
+
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Users sheet not found"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const data = sheet.getDataRange().getValues();
+  // Columns: username, password, displayName, commonName, scientificName, comment, cardAuthor
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === username && data[i][1] === password) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        user: {
+          username: data[i][0],
+          displayName: data[i][2] || username,
+          commonName: data[i][3] || "",
+          scientificName: data[i][4] || "",
+          comment: data[i][5] || "",
+          cardAuthor: data[i][6] || username
+        }
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "error",
+    message: "Invalid credentials"
+  })).setMimeType(ContentService.MimeType.JSON);
 }
