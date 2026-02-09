@@ -220,6 +220,31 @@
             text-overflow: ellipsis;
         }
 
+        .status-free {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .status-mine {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .status-taken {
+            color: #999;
+            font-style: italic;
+        }
+
+        .card-item.taken {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        .card-item.taken:hover {
+            transform: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
         /* Editor Modal */
         .modal {
             display: none;
@@ -380,6 +405,22 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
 
+        .btn-unadopt {
+            padding: 12px 24px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-unadopt:hover {
+            background: #c82333;
+        }
+
         .save-indicator {
             margin-top: 15px;
             padding: 12px;
@@ -412,7 +453,8 @@
             }
 
             .btn-cancel,
-            .btn-save {
+            .btn-save,
+            .btn-unadopt {
                 width: 100%;
             }
         }
@@ -502,6 +544,7 @@
                 </form>
             </div>
             <div class="modal-footer">
+                <button class="btn-unadopt" id="unadoptBtn" style="display: none; margin-right: auto;">Alliberar fitxa</button>
                 <button class="btn-cancel" id="cancelBtn">Cancel·lar</button>
                 <button class="btn-save" id="saveBtn">Guardar canvis</button>
             </div>
@@ -509,33 +552,14 @@
     </div>
 
     <script>
-        // Google Apps Script URL for authentication
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz99Y370W8N0Lei19YkDTp4D9Kw6S9Q55Xhvf76MTSGKb4k7amBQbd0eeUkoq9IBy0wHg/exec';
-
-        // Card IDs mapping to image IDs
-        const CARD_MAPPINGS = [
-            { cardId: '01FC05', photoId: 'FotosCavet00005' },
-            { cardId: '02FC08', photoId: 'FotosCavet00008' },
-            { cardId: '03FC12', photoId: 'FotosCavet00012' },
-            { cardId: '04FC15', photoId: 'FotosCavet00015' },
-            { cardId: '05FC06', photoId: 'FotosCavet00006' },
-            { cardId: '06FC04', photoId: 'FotosCavet00004' },
-            { cardId: '07FC02', photoId: 'FotosCavet00002' },
-            { cardId: '08FC07', photoId: 'FotosCavet00007' },
-            { cardId: '09FC01', photoId: 'FotosCavet00001' },
-            { cardId: '10FC20', photoId: 'FotosCavet00020' },
-            { cardId: '11FC43', photoId: 'FotosCavet00043' },
-            { cardId: '12FC45', photoId: 'FotosCavet00045' },
-            { cardId: '13FC03', photoId: 'FotosCavet00003' },
-            { cardId: '14FC30', photoId: 'FotosCavet00030' },
-            { cardId: '15FC34', photoId: 'FotosCavet00034' }
-        ];
+        // Google Apps Script URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIKQ_6Vnc-sAYIAuE1OjvmCVbgskpThVCVBoL5dy6HfbRUjPTkX_-ZoYrcX3dB0snMhA/exec';
 
         let currentUser = null;
         let currentUserData = null;
         let currentEditingCard = null;
         let imagesData = [];
-        let sheetsCardsData = {};
+        let allCards = []; // Loaded from Cards sheet (replaces hardcoded CARD_MAPPINGS)
 
         // Elements
         const loginScreen = document.getElementById('loginScreen');
@@ -549,6 +573,7 @@
         const closeModal = document.getElementById('closeModal');
         const cancelBtn = document.getElementById('cancelBtn');
         const saveBtn = document.getElementById('saveBtn');
+        const unadoptBtn = document.getElementById('unadoptBtn');
         const editorForm = document.getElementById('editorForm');
 
         // Login handler
@@ -558,7 +583,6 @@
             const password = document.getElementById('password').value;
             const loginBtn = document.querySelector('.login-btn');
 
-            // Disable button during login
             loginBtn.disabled = true;
             loginBtn.textContent = 'Iniciant sessió...';
 
@@ -608,7 +632,7 @@
             loadCards();
         }
 
-        // Load cards and cards data from Google Sheets
+        // Load cards from Google Sheets
         async function loadCards() {
             try {
                 const [imagesResponse, cardsResponse] = await Promise.all([
@@ -618,10 +642,7 @@
                 imagesData = await imagesResponse.json();
                 const cardsResult = await cardsResponse.json();
                 if (cardsResult.status === 'success') {
-                    sheetsCardsData = {};
-                    cardsResult.cards.forEach(card => {
-                        sheetsCardsData[card.cardId] = card;
-                    });
+                    allCards = cardsResult.cards;
                 }
                 renderCards();
             } catch (err) {
@@ -629,28 +650,45 @@
             }
         }
 
-        // Render cards
+        // Render cards with adoption status
         function renderCards() {
             cardsGrid.innerHTML = '';
 
-            CARD_MAPPINGS.forEach(mapping => {
-                const imageData = imagesData.find(img => img.id === mapping.photoId);
+            allCards.forEach(card => {
+                const imageData = imagesData.find(img => img.id === card.photoId);
                 if (!imageData) return;
 
                 const cardElement = document.createElement('div');
                 cardElement.className = 'card-item';
-                cardElement.onclick = () => openEditor(mapping);
 
-                // Load saved data
-                const savedData = loadCardData(mapping.cardId);
-                const scientificName = savedData.scientificName || 'Nom científic no assignat';
-                const fotoAuthor = savedData.fotoAuthor || 'Autor desconegut';
+                const isAdoptedByMe = card.cardAuthor === currentUser;
+                const isAdoptedByOther = card.cardAuthor && card.cardAuthor !== currentUser;
+                const isFree = !card.cardAuthor;
+
+                let statusText = '';
+                let statusClass = '';
+
+                if (isFree) {
+                    statusText = 'Lliure - Fes clic per adoptar';
+                    statusClass = 'status-free';
+                    cardElement.onclick = () => openEditor(card);
+                } else if (isAdoptedByMe) {
+                    statusText = 'La teva fitxa';
+                    statusClass = 'status-mine';
+                    cardElement.onclick = () => openEditor(card);
+                } else {
+                    statusText = 'Adoptada per ' + card.cardAuthor;
+                    statusClass = 'status-taken';
+                    cardElement.classList.add('taken');
+                }
+
+                const scientificName = card.scientificName || 'Nom pendent';
 
                 cardElement.innerHTML = `
                     <img src="${imageData.url}" alt="${imageData.titulo}" loading="lazy">
                     <div class="card-info">
                         <div class="card-id">${scientificName}</div>
-                        <div class="card-name">${fotoAuthor}</div>
+                        <div class="card-name ${statusClass}">${statusText}</div>
                     </div>
                 `;
 
@@ -659,20 +697,29 @@
         }
 
         // Open editor
-        function openEditor(mapping) {
-            currentEditingCard = mapping;
-            const imageData = imagesData.find(img => img.id === mapping.photoId);
+        function openEditor(card) {
+            // Safety check: prevent opening cards adopted by others
+            if (card.cardAuthor && card.cardAuthor !== currentUser) return;
 
-            document.getElementById('modalTitle').textContent = `${mapping.photoId} (${mapping.cardId})`;
-            document.getElementById('modalImage').src = imageData.url;
+            currentEditingCard = card;
+            const imageData = imagesData.find(img => img.id === card.photoId);
 
-            // Load saved data, or use user's default data from the sheet
-            const savedData = loadCardData(mapping.cardId);
-            document.getElementById('commonName').value = savedData.commonName || currentUserData?.commonName || '';
-            document.getElementById('scientificName').value = savedData.scientificName || currentUserData?.scientificName || '';
-            document.getElementById('comment').value = savedData.comment || currentUserData?.comment || '';
-            document.getElementById('fotoAuthor').value = savedData.fotoAuthor || currentUserData?.name || '';
-            document.getElementById('cardAuthor').value = savedData.cardAuthor || currentUserData?.cardAuthor || currentUser;
+            const isNewAdoption = !card.cardAuthor;
+            document.getElementById('modalTitle').textContent = isNewAdoption
+                ? `Adoptar fitxa ${card.cardId}`
+                : `Editar fitxa ${card.cardId}`;
+            document.getElementById('modalImage').src = imageData ? imageData.url : '';
+
+            // Populate form from card data
+            document.getElementById('commonName').value = card.commonName || '';
+            document.getElementById('scientificName').value = card.scientificName || '';
+            document.getElementById('comment').value = card.comment || '';
+            document.getElementById('fotoAuthor').value = card.fotoAuthor || '';
+            document.getElementById('cardAuthor').value = card.cardAuthor || currentUserData?.displayName || currentUser;
+
+            // Update buttons based on context
+            saveBtn.textContent = isNewAdoption ? 'Adoptar fitxa' : 'Guardar canvis';
+            unadoptBtn.style.display = isNewAdoption ? 'none' : 'inline-block';
 
             editorModal.classList.add('active');
         }
@@ -703,13 +750,11 @@
 
             const data = {
                 cardId: currentEditingCard.cardId,
-                photoId: currentEditingCard.photoId,
                 commonName: document.getElementById('commonName').value,
                 scientificName: document.getElementById('scientificName').value,
                 comment: document.getElementById('comment').value,
                 fotoAuthor: document.getElementById('fotoAuthor').value,
-                cardAuthor: currentUser,
-                lastSaved: new Date().toISOString()
+                cardAuthor: currentUser
             };
 
             try {
@@ -721,9 +766,22 @@
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    sheetsCardsData[data.cardId] = data;
+                    // Update local cache
+                    const cardIndex = allCards.findIndex(c => c.cardId === data.cardId);
+                    if (cardIndex !== -1) {
+                        allCards[cardIndex] = { ...allCards[cardIndex], ...data };
+                    }
+
+                    // If this was an adoption, update user data
+                    if (result.adopted) {
+                        currentUserData.adoptedCard = data.cardId;
+                        sessionStorage.setItem('userData', JSON.stringify(currentUserData));
+                    }
 
                     const indicator = document.getElementById('saveIndicator');
+                    indicator.textContent = result.adopted
+                        ? 'Fitxa adoptada correctament!'
+                        : 'Fitxa guardada correctament';
                     indicator.style.display = 'block';
                     setTimeout(() => {
                         indicator.style.display = 'none';
@@ -731,21 +789,58 @@
                         closeEditor();
                     }, 1500);
                 } else {
-                    alert('Error guardant la fitxa: ' + (result.message || 'Error desconegut'));
+                    alert('Error: ' + (result.message || 'Error desconegut'));
                 }
             } catch (error) {
                 console.error('Error saving card:', error);
                 alert('Error de connexió. Intenta-ho de nou.');
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = 'Guardar canvis';
+                saveBtn.textContent = currentEditingCard?.cardAuthor ? 'Guardar canvis' : 'Adoptar fitxa';
             }
         });
 
-        // Load card data from Google Sheets cache
-        function loadCardData(cardId) {
-            return sheetsCardsData[cardId] || {};
-        }
+        // Unadopt card handler
+        unadoptBtn.addEventListener('click', async function() {
+            if (!currentEditingCard) return;
+
+            if (!confirm('Segur que vols alliberar aquesta fitxa? Es perdran les dades introduïdes.')) return;
+
+            unadoptBtn.disabled = true;
+            unadoptBtn.textContent = 'Alliberant...';
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?action=unadoptCard&cardId=${encodeURIComponent(currentEditingCard.cardId)}&username=${encodeURIComponent(currentUser)}`;
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Update local cache
+                    const cardIndex = allCards.findIndex(c => c.cardId === currentEditingCard.cardId);
+                    if (cardIndex !== -1) {
+                        allCards[cardIndex].cardAuthor = '';
+                        allCards[cardIndex].commonName = '';
+                        allCards[cardIndex].scientificName = '';
+                        allCards[cardIndex].comment = '';
+                        allCards[cardIndex].fotoAuthor = '';
+                    }
+
+                    currentUserData.adoptedCard = '';
+                    sessionStorage.setItem('userData', JSON.stringify(currentUserData));
+
+                    renderCards();
+                    closeEditor();
+                } else {
+                    alert('Error: ' + (result.message || 'Error desconegut'));
+                }
+            } catch (error) {
+                console.error('Error unadopting card:', error);
+                alert('Error de connexió. Intenta-ho de nou.');
+            } finally {
+                unadoptBtn.disabled = false;
+                unadoptBtn.textContent = 'Alliberar fitxa';
+            }
+        });
 
         // Check if user is already logged in
         const savedUser = sessionStorage.getItem('currentUser');

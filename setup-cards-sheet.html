@@ -189,8 +189,9 @@
 
         <div class="info-box">
             <strong>📌 Què és la fulla "Cards"?</strong><br>
-            És una fulla de Google Sheets que emmagatzemarà totes les dades editades de les 15 fitxes.
-            Cada vegada que un usuari guardi una fitxa, les dades es desaran aquí.
+            És una fulla de Google Sheets que emmagatzema les dades de les 15 fitxes.
+            En crear-la, es pre-poblen les 15 files amb els IDs de fitxa i foto.
+            Cada vegada que un usuari adopti o editi una fitxa, les dades es desaran aquí.
         </div>
 
         <!-- Step 1: Column Structure -->
@@ -212,45 +213,40 @@
                         <tr>
                             <td><strong>A</strong></td>
                             <td>Card ID</td>
-                            <td>ID de la fitxa (ex: 01FC05)</td>
+                            <td>ID de la fitxa (ex: 01FC05) - pre-poblat</td>
                         </tr>
                         <tr>
                             <td><strong>B</strong></td>
                             <td>Photo ID</td>
-                            <td>ID de la foto (ex: FotosCavet00005)</td>
+                            <td>ID de la foto (ex: FotosCavet00005) - pre-poblat</td>
                         </tr>
                         <tr>
                             <td><strong>C</strong></td>
-                            <td>Card Name</td>
-                            <td>Nom de la fitxa (camp nou)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>D</strong></td>
-                            <td>Foto Author</td>
-                            <td>Autor de la foto (camp nou, només lectura)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>E</strong></td>
                             <td>Common Name</td>
                             <td>Nom comú de l'espècie</td>
                         </tr>
                         <tr>
-                            <td><strong>F</strong></td>
+                            <td><strong>D</strong></td>
                             <td>Scientific Name</td>
                             <td>Nom científic de l'espècie</td>
                         </tr>
                         <tr>
-                            <td><strong>G</strong></td>
+                            <td><strong>E</strong></td>
                             <td>Comment</td>
                             <td>Comentaris sobre la fitxa</td>
                         </tr>
                         <tr>
-                            <td><strong>H</strong></td>
-                            <td>Card Author</td>
-                            <td>Autor de la fitxa</td>
+                            <td><strong>F</strong></td>
+                            <td>Foto Author</td>
+                            <td>Autor de la foto</td>
                         </tr>
                         <tr>
-                            <td><strong>I</strong></td>
+                            <td><strong>G</strong></td>
+                            <td>Card Author</td>
+                            <td>Usuari que ha adoptat la fitxa</td>
+                        </tr>
+                        <tr>
+                            <td><strong>H</strong></td>
                             <td>Last Modified</td>
                             <td>Data de la darrera modificació</td>
                         </tr>
